@@ -1,9 +1,6 @@
 #include <math.h>
 #include <uWS/uWS.h>
-#include <chrono>
-#include <iostream>
 #include <thread>
-#include <vector>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "MPC.h"
@@ -82,11 +79,37 @@ int main() {
         if (event == "telemetry") {
           // j[1] is the data JSON object
           std::vector<double> ptsx = j[1]["ptsx"];
+          Eigen::VectorXd ptsxEigen((int) ptsx.size());
+          for (int i = 0; i < ptsx.size(); i++) {
+            ptsxEigen[i] = ptsx[i];
+          }
+
           std::vector<double> ptsy = j[1]["ptsy"];
+          Eigen::VectorXd ptsyEigen((int) ptsy.size());
+          for (int i = 0; i < ptsy.size(); i++) {
+            ptsxEigen[i] = ptsy[i];
+          }
+
+          // The polynomial is fitted to a straight line so a polynomial with order 1 is sufficient.
+          auto coeffs = polyfit(ptsxEigen, ptsyEigen, 1);
+
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+
+          // The cross track error is calculated by evaluating at polynomial at x, f(x) and subtracting y.
+          double cte = polyeval(coeffs, px) - py;
+          // Due to the sign starting at 0, the orientation error is -f'(x).
+          // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
+          double epsi = psi - atan(coeffs[1]);
+
+          printf("px=%f, py=%f, psi=%f, v=%f, cte=%f, epsi=%f", px, py, psi, v, cte, epsi);
+
+          Eigen::VectorXd state(6);
+          state << px, py, psi, v, cte, epsi;
+
+          auto vars = mpc.Solve(state, coeffs);
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
