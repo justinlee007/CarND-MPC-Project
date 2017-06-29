@@ -119,8 +119,7 @@ int main() {
 
           auto vars = mpc.Solve(state, coeffs);
 
-
-          //Display the MPC predicted trajectory
+          // Display the MPC predicted trajectory
           std::vector<double> mpc_x_vals;
           std::vector<double> mpc_y_vals;
 
@@ -132,8 +131,7 @@ int main() {
             }
           }
 
-
-          //Display the waypoints/reference line
+          // Display the waypoints/reference line
           std::vector<double> next_x_vals;
           std::vector<double> next_y_vals;
 
