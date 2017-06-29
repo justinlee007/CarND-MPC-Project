@@ -7,13 +7,9 @@ using CppAD::AD;
 size_t N = 10; // Number of timesteps
 double dt = 0.1; // Timestep evaluation frequency
 
-// This value assumes the model presented in the classroom is used.
-//
-// It was obtained by measuring the radius formed by running the vehicle in the simulator around in a circle with a constant steering angle and velocity on a flat terrain.
-//
-// Lf was tuned until the the radius formed by the simulating the model presented in the classroom matched the previous radius.
-//
-// This is the length from front to CoG that has a similar radius.
+// This value assumes the model presented in the classroom is used. It was obtained by measuring the radius formed by running the vehicle in the simulator around in a circle with a
+// constant steering angle and velocity on a flat terrain. Lf was tuned until the the radius formed by the simulating the model presented in the classroom matched the previous
+// radius. This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
@@ -21,7 +17,8 @@ double ref_cte = 0;
 double ref_epsi = 0;
 double ref_v = 100; // The reference velocity is set to 100 mph.
 
-// The solver takes all the state variables and actuator variables in a singular vector. Thus, we should to establish when one variable starts and another ends to make our lifes easier.
+// The solver takes all the state variables and actuator variables in a singular vector.
+// Thus, we should to establish when one variable starts and another ends to make our lives easier.
 size_t x_start = 0;
 size_t y_start = x_start + N;
 size_t psi_start = y_start + N;
@@ -39,8 +36,7 @@ class FG_eval {
 
   typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
   void operator()(ADvector &fg, const ADvector &vars) {
-    // The cost is stored is the first element of `fg`.
-    // Any additions to the cost should be added to `fg[0]`.
+    // The cost is stored is the first element of `fg`. Any additions to the cost should be added to `fg[0]`.
     fg[0] = 0;
 
     // The part of the cost based on the reference state.
@@ -68,8 +64,7 @@ class FG_eval {
 
     // Initial constraints
     //
-    // We add 1 to each of the starting indices due to cost being located at index 0 of `fg`.
-    // This bumps up the position of all the other values.
+    // We add 1 to each of the starting indices due to cost being located at index 0 of `fg`. This bumps up the position of all the other values.
     fg[1 + x_start] = vars[x_start];
     fg[1 + y_start] = vars[y_start];
     fg[1 + psi_start] = vars[psi_start];
@@ -133,8 +128,7 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   size_t n_vars = N * 6 + (N - 1) * 2;
   size_t n_constraints = N * 6;
 
-  // Initial value of the independent variables.
-  // SHOULD BE 0 besides initial state.
+  // Initial value of the independent variables. SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
   for (int i = 0; i < n_vars; i++) {
     vars[i] = 0;
@@ -150,21 +144,18 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   }
 
   // The upper and lower limits of delta are set to -25 and 25 degrees (values in radians).
-  // NOTE: Feel free to change this to something else.
   for (int i = delta_start; i < a_start; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }
 
   // Acceleration/decceleration upper and lower limits.
-  // NOTE: Feel free to change this to something else.
   for (int i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }
 
-  // Lower and upper limits for the constraints
-  // Should be 0 besides initial state.
+  // Lower and upper limits for the constraints. Should be 0 besides initial state.
   Dvector constraints_lowerbound(n_constraints);
   Dvector constraints_upperbound(n_constraints);
   for (int i = 0; i < n_constraints; i++) {
@@ -214,7 +205,6 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Cost
   auto cost = solution.obj_value;
-  // std::cout << "Cost " << cost << std::endl;
 
   std::vector<double> result;
   result.push_back(solution.x[delta_start]);

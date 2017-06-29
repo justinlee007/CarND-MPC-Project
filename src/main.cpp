@@ -70,7 +70,6 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     std::string sdata = std::string(data).substr(0, length);
-    //cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       std::string s = hasData(sdata);
       if (s != "") {
@@ -87,7 +86,7 @@ int main() {
 
           for (int i = 0; i < ptsx.size(); i++) {
 
-            //shift car reference angle to 90 degrees
+            // Shift car reference angle to 90 degrees
             double shift_x = ptsx[i] - px;
             double shift_y = ptsy[i] - py;
 
@@ -104,7 +103,7 @@ int main() {
 
           auto coeffs = polyfit(ptsx_transform, ptsy_transform, 3);
 
-          //caculate cte and epsi
+          // Calculate cte and epsi
           double cte = polyeval(coeffs, 0);
           double epsi = -atan(coeffs[1]);
 
@@ -114,7 +113,7 @@ int main() {
           double delay_t = .1;
           const double Lf = 2.67;
 
-          //factor in delay
+          // Factor in delay
           double delay_x = v * delay_t;
           double delay_y = 0;
           double delay_psi = -v * steer_value / Lf * delay_t;
@@ -125,15 +124,7 @@ int main() {
           Eigen::VectorXd state(6);
           state << delay_x, delay_y, delay_psi, delay_v, delay_cte, delay_epsi;
 
-
-          /*
-          * TODO: Calculate steeering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
-
-
+          // Calculate steering angle and throttle using MPC.
           auto vars = mpc.Solve(state, coeffs);
 
           std::vector<double> next_x_vals;
@@ -169,12 +160,8 @@ int main() {
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           //std::cout << msg << std::endl;
-          // Latency
-          // The purpose is to mimic real driving conditions where the car does actuate the commands instantly.
-          //
-          // Feel free to play around with this value but should be to drive around the track with 100ms latency.
-          //
-          // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE SUBMITTING.
+
+          // Manually added latency. The purpose is to mimic real driving conditions where the car does actuate the commands instantly.
           std::this_thread::sleep_for(std::chrono::milliseconds((int) (delay_t * 1000)));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
@@ -186,9 +173,7 @@ int main() {
     }
   });
 
-  // We don't need this since we're not using HTTP but if it's removed the
-  // program
-  // doesn't compile :-(
+  // We don't need this since we're not using HTTP but if it's removed the program doesn't compile :-(
   h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t, size_t) {
     const std::string s = "<h1>Hello world!</h1>";
     if (req.getUrl().valueLength == 1) {
