@@ -4,29 +4,32 @@
 
 using CppAD::AD;
 
-size_t N = 10; // Number of timesteps
-double dt = 0.1; // Timestep evaluation frequency
+static const size_t N = 10; // Number of timesteps
+static const double dt = 0.1; // Timestep evaluation frequency
+
+static const size_t n_vars = N * 6 + (N - 1) * 2;
+static const size_t n_constraints = N * 6;
 
 // This value assumes the model presented in the classroom is used. It was obtained by measuring the radius formed by running the vehicle in the simulator around in a circle with a
 // constant steering angle and velocity on a flat terrain. Lf was tuned until the the radius formed by the simulating the model presented in the classroom matched the previous
 // radius. This is the length from front to CoG that has a similar radius.
-const double Lf = 2.67;
+static const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
-double ref_cte = 0;
-double ref_epsi = 0;
-double ref_v = 100; // The reference velocity is set to 100 mph.
+static const double ref_cte = 0;
+static const double ref_epsi = 0;
+static const double ref_v = 100; // The reference velocity is set to 100 mph.
 
 // The solver takes all the state variables and actuator variables in a singular vector.
 // Thus, we should to establish when one variable starts and another ends to make our lives easier.
-size_t x_start = 0;
-size_t y_start = x_start + N;
-size_t psi_start = y_start + N;
-size_t v_start = psi_start + N;
-size_t cte_start = v_start + N;
-size_t epsi_start = cte_start + N;
-size_t delta_start = epsi_start + N;
-size_t a_start = delta_start + N - 1;
+static const size_t x_start = 0;
+static const size_t y_start = x_start + N;
+static const size_t psi_start = y_start + N;
+static const size_t v_start = psi_start + N;
+static const size_t cte_start = v_start + N;
+static const size_t epsi_start = cte_start + N;
+static const size_t delta_start = epsi_start + N;
+static const size_t a_start = delta_start + N - 1;
 
 class FG_eval {
  public:
@@ -114,8 +117,6 @@ MPC::MPC() {}
 MPC::~MPC() {}
 
 std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
-  bool ok = true;
-  size_t i;
   typedef CPPAD_TESTVECTOR(double) Dvector;
 
   double x = state[0];
@@ -124,9 +125,6 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   double v = state[3];
   double cte = state[4];
   double epsi = state[5];
-
-  size_t n_vars = N * 6 + (N - 1) * 2;
-  size_t n_constraints = N * 6;
 
   // Initial value of the independent variables. SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
@@ -201,7 +199,7 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   CppAD::ipopt::solve<Dvector, FG_eval>(options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound, constraints_upperbound, fg_eval, solution);
 
   // Check some of the solution values
-  ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
+  bool ok = solution.status == CppAD::ipopt::solve_result<Dvector>::success;
 
   // Cost
   auto cost = solution.obj_value;
