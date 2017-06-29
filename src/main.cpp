@@ -70,7 +70,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     std::string sdata = std::string(data).substr(0, length);
-//    std::cout << sdata << std::endl;
+    //cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       std::string s = hasData(sdata);
       if (s != "") {
@@ -86,12 +86,14 @@ int main() {
           double v = j[1]["speed"];
 
           for (int i = 0; i < ptsx.size(); i++) {
-            // shift car reference angle to 90 degrees
+
+            //shift car reference angle to 90 degrees
             double shift_x = ptsx[i] - px;
             double shift_y = ptsy[i] - py;
 
             ptsx[i] = (shift_x * cos(0 - psi) - shift_y * sin(0 - psi));
-            ptsy[i] = (shift_x * sin(0 - psi) - shift_y * cos(0 - psi));
+            ptsy[i] = (shift_x * sin(0 - psi) + shift_y * cos(0 - psi));
+
           }
 
           double *ptrx = &ptsx[0];
@@ -100,16 +102,10 @@ int main() {
           double *ptry = &ptsy[0];
           Eigen::Map<Eigen::VectorXd> ptsy_transform(ptry, 6);
 
-          // The polynomial is fitted to a straight line so a polynomial with order 1 is sufficient.
           auto coeffs = polyfit(ptsx_transform, ptsy_transform, 3);
 
-          // The cross track error is calculated by evaluating at polynomial at x, f(x) and subtracting y.
-//          double cte = polyeval(coeffs, px) - py;
+          //caculate cte and epsi
           double cte = polyeval(coeffs, 0);
-
-          // Due to the sign starting at 0, the orientation error is -f'(x).
-          // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-//          double epsi = psi - atan(coeffs[1] + 2 * px * coeffs[2] + 3 * coeffs[3] * pow(px, 2));
           double epsi = -atan(coeffs[1]);
 
           double steer_value = j[1]["steering_angle"];
@@ -129,9 +125,17 @@ int main() {
           Eigen::VectorXd state(6);
           state << delay_x, delay_y, delay_psi, delay_v, delay_cte, delay_epsi;
 
+
+          /*
+          * TODO: Calculate steeering angle and throttle using MPC.
+          *
+          * Both are in between [-1, 1].
+          *
+          */
+
+
           auto vars = mpc.Solve(state, coeffs);
 
-          // Display the waypoints/reference line
           std::vector<double> next_x_vals;
           std::vector<double> next_y_vals;
 
@@ -142,7 +146,6 @@ int main() {
             next_y_vals.push_back(polyeval(coeffs, poly_inc * i));
           }
 
-          // Display the MPC predicted trajectory
           std::vector<double> mpc_x_vals;
           std::vector<double> mpc_y_vals;
 
@@ -155,14 +158,8 @@ int main() {
           }
 
           json msgJson;
-
-          steer_value = vars[0];
-          throttle_value = vars[1];
-
-          printf("steer_value=%.4f, throttle_value=%.4f\n", steer_value, throttle_value);
-
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;
+          msgJson["steering_angle"] = vars[0];
+          msgJson["throttle"] = vars[1];
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
@@ -171,14 +168,14 @@ int main() {
           msgJson["mpc_y"] = mpc_y_vals;
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-//          std::cout << msg << std::endl;
+          //std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where the car does actuate the commands instantly.
           //
           // Feel free to play around with this value but should be to drive around the track with 100ms latency.
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE SUBMITTING.
-          std::this_thread::sleep_for(std::chrono::milliseconds((int) delay_t * 1000));
+          std::this_thread::sleep_for(std::chrono::milliseconds((int) (delay_t * 1000)));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
@@ -189,7 +186,9 @@ int main() {
     }
   });
 
-  // We don't need this since we're not using HTTP but if it's removed the program doesn't compile :-(
+  // We don't need this since we're not using HTTP but if it's removed the
+  // program
+  // doesn't compile :-(
   h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t, size_t) {
     const std::string s = "<h1>Hello world!</h1>";
     if (req.getUrl().valueLength == 1) {

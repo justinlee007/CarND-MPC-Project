@@ -16,11 +16,10 @@ double dt = 0.1; // Timestep evaluation frequency
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
 
+// Both the reference cross track and orientation errors are 0.
 double ref_cte = 0;
 double ref_epsi = 0;
-// Both the reference cross track and orientation errors are 0.
-// The reference velocity is set to 40 mph.
-double ref_v = 100;
+double ref_v = 100; // The reference velocity is set to 100 mph.
 
 // The solver takes all the state variables and actuator variables in a singular vector. Thus, we should to establish when one variable starts and another ends to make our lifes easier.
 size_t x_start = 0;
@@ -48,8 +47,6 @@ class FG_eval {
     for (int t = 0; t < N; t++) {
       fg[0] += 2000 * CppAD::pow(vars[cte_start + t] - ref_cte, 2);
       fg[0] += 2000 * CppAD::pow(vars[epsi_start + t] - ref_epsi, 2);
-//      fg[0] += CppAD::pow(vars[cte_start + t] - ref_cte, 2);
-//      fg[0] += CppAD::pow(vars[epsi_start + t] - ref_epsi, 2);
       fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
@@ -57,22 +54,17 @@ class FG_eval {
     for (int t = 0; t < N - 1; t++) {
       fg[0] += 5 * CppAD::pow(vars[delta_start + t], 2);
       fg[0] += 5 * CppAD::pow(vars[a_start + t], 2);
-//      fg[0] += CppAD::pow(vars[delta_start + t], 2);
-//      fg[0] += CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int t = 0; t < N - 2; t++) {
       fg[0] += 200 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
       fg[0] += 10 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
-//      fg[0] += CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-//      fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     //
     // Setup Constraints
     //
-    // NOTE: In this section you'll setup the model constraints.
 
     // Initial constraints
     //
@@ -86,7 +78,7 @@ class FG_eval {
     fg[1 + epsi_start] = vars[epsi_start];
 
     // The rest of the constraints
-    for (int t = 1; t < N - 1; t++) {
+    for (int t = 0; t < N - 1; t++) {
       // The state at time t+1 .
       AD<double> x1 = vars[x_start + t + 1];
       AD<double> y1 = vars[y_start + t + 1];
@@ -110,16 +102,6 @@ class FG_eval {
       AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0 + coeffs[3] * x0 * x0 * x0;
       AD<double> psides0 = CppAD::atan(3 * coeffs[3] * x0 * x0 + 2 * coeffs[2] * x0 + coeffs[1]);
 
-      // Here's `x` to get you started.
-      // The idea here is to constraint this value to be 0.
-      //
-      // Recall the equations for the model:
-      // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
-      // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
-      // psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
-      // v_[t+1] = v[t] + a[t] * dt
-      // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
-      // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
       fg[2 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[2 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
       fg[2 + psi_start + t] = psi1 - (psi0 - v0 * delta0 / Lf * dt);
@@ -157,14 +139,6 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   for (int i = 0; i < n_vars; i++) {
     vars[i] = 0;
   }
-
-  // Set the initial variable values
-//  vars[x_start] = x;
-//  vars[y_start] = y;
-//  vars[psi_start] = psi;
-//  vars[v_start] = v;
-//  vars[cte_start] = cte;
-//  vars[epsi_start] = epsi;
 
   Dvector vars_lowerbound(n_vars);
   Dvector vars_upperbound(n_vars);
