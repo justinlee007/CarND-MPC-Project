@@ -70,7 +70,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     std::string sdata = std::string(data).substr(0, length);
-    std::cout << sdata << std::endl;
+//    std::cout << sdata << std::endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       std::string s = hasData(sdata);
       if (s != "") {
@@ -104,20 +104,43 @@ int main() {
           auto coeffs = polyfit(ptsx_transform, ptsy_transform, 3);
 
           // The cross track error is calculated by evaluating at polynomial at x, f(x) and subtracting y.
+//          double cte = polyeval(coeffs, px) - py;
           double cte = polyeval(coeffs, 0);
 
           // Due to the sign starting at 0, the orientation error is -f'(x).
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          //double epsi = psi - atan(coeffs[1] + 2 * px * coeffs[2] + 3 * coeffs[3] * pow(px, 2));
+//          double epsi = psi - atan(coeffs[1] + 2 * px * coeffs[2] + 3 * coeffs[3] * pow(px, 2));
           double epsi = -atan(coeffs[1]);
 
           double steer_value = j[1]["steering_angle"];
           double throttle_value = j[1]["throttle"];
 
+          double delay_t = .1;
+          const double Lf = 2.67;
+
+          //factor in delay
+          double delay_x = v * delay_t;
+          double delay_y = 0;
+          double delay_psi = -v * steer_value / Lf * delay_t;
+          double delay_v = v + throttle_value * delay_t;
+          double delay_cte = cte + v * sin(epsi) * delay_t;
+          double delay_epsi = epsi - v * steer_value / Lf * delay_t;
+
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          state << delay_x, delay_y, delay_psi, delay_v, delay_cte, delay_epsi;
 
           auto vars = mpc.Solve(state, coeffs);
+
+          // Display the waypoints/reference line
+          std::vector<double> next_x_vals;
+          std::vector<double> next_y_vals;
+
+          double poly_inc = 2.5;
+          int num_points = 25;
+          for (int i = 1; i < num_points; i++) {
+            next_x_vals.push_back(poly_inc * i);
+            next_y_vals.push_back(polyeval(coeffs, poly_inc * i));
+          }
 
           // Display the MPC predicted trajectory
           std::vector<double> mpc_x_vals;
@@ -131,38 +154,31 @@ int main() {
             }
           }
 
-          // Display the waypoints/reference line
-          std::vector<double> next_x_vals;
-          std::vector<double> next_y_vals;
-
-          double poly_inc = 2.5;
-          int num_points = 25;
-          for (int i = 1; i < num_points; i++) {
-            next_x_vals.push_back(poly_inc * i);
-            next_y_vals.push_back(polyeval(coeffs, poly_inc * i));
-          }
-
-          double Lf = 2.67;
-
           json msgJson;
-          msgJson["steering_angle"] = vars[0] / (deg2rad(25) * Lf);
-          msgJson["throttle"] = vars[1];
 
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          steer_value = vars[0];
+          throttle_value = vars[1];
+
+          printf("steer_value=%.4f, throttle_value=%.4f\n", steer_value, throttle_value);
+
+          msgJson["steering_angle"] = steer_value;
+          msgJson["throttle"] = throttle_value;
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
+          msgJson["mpc_x"] = mpc_x_vals;
+          msgJson["mpc_y"] = mpc_y_vals;
+
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+//          std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where the car does actuate the commands instantly.
           //
           // Feel free to play around with this value but should be to drive around the track with 100ms latency.
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE SUBMITTING.
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          std::this_thread::sleep_for(std::chrono::milliseconds((int) delay_t * 1000));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
