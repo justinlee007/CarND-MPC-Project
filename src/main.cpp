@@ -5,6 +5,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "MPC.h"
 #include "json.hpp"
+#include "Tracker.h"
 
 // for convenience
 using json = nlohmann::json;
@@ -13,6 +14,7 @@ static const double TIME_DELAY_SEC = 0.1;
 static const double LF = 2.67;
 static const double POLY_INC = 2.5;
 static const int NUM_POINTS = 25;
+static const int SAMPLE_SIZE = 100;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -67,10 +69,12 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order)
 int main() {
   uWS::Hub h;
 
-  // MPC is initialized here!
   MPC mpc;
+  Tracker tracker;
 
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  tracker.init(SAMPLE_SIZE);
+
+  h.onMessage([&mpc, &tracker](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -89,14 +93,16 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          double cos_psi = cos(0 - psi);
+          double sin_psi = sin(0 - psi);
           for (int i = 0; i < ptsx.size(); i++) {
 
             // Shift car reference angle to 90 degrees
             double shift_x = ptsx[i] - px;
             double shift_y = ptsy[i] - py;
 
-            ptsx[i] = (shift_x * cos(0 - psi) - shift_y * sin(0 - psi));
-            ptsy[i] = (shift_x * sin(0 - psi) + shift_y * cos(0 - psi));
+            ptsx[i] = (shift_x * cos_psi - shift_y * sin_psi);
+            ptsy[i] = (shift_x * sin_psi + shift_y * cos_psi);
 
           }
 
@@ -133,8 +139,9 @@ int main() {
           std::vector<double> next_y_vals;
 
           for (int i = 1; i < NUM_POINTS; i++) {
-            next_x_vals.push_back(POLY_INC * i);
-            next_y_vals.push_back(polyeval(coeffs, POLY_INC * i));
+            double next_val = POLY_INC * i;
+            next_x_vals.push_back(next_val);
+            next_y_vals.push_back(polyeval(coeffs, next_val));
           }
 
           std::vector<double> mpc_x_vals;
@@ -148,9 +155,13 @@ int main() {
             }
           }
 
+          steer_value = vars[0];
+          throttle_value = vars[1];
+          tracker.onMessageProcessed(cte, v, throttle_value);
+
           json msgJson;
-          msgJson["steering_angle"] = vars[0];
-          msgJson["throttle"] = vars[1];
+          msgJson["steering_angle"] = steer_value;
+          msgJson["throttle"] = throttle_value;
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

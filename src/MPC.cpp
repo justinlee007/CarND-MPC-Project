@@ -13,7 +13,7 @@ static const size_t CONSTRAINTS = TIMESTEPS * 6;
 // This value assumes the model presented in the classroom is used. It was obtained by measuring the radius formed by running the vehicle in the simulator around in a circle with a
 // constant steering angle and velocity on a flat terrain. Lf was tuned until the the radius formed by the simulating the model presented in the classroom matched the previous
 // radius. This is the length from front to CoG that has a similar radius.
-static const double Lf = 2.67;
+static const double LF = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
 static const double REF_CTE = 0;
@@ -102,10 +102,10 @@ class FG_eval {
 
       fg[2 + X_START + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * DT);
       fg[2 + Y_START + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * DT);
-      fg[2 + PSI_START + t] = psi1 - (psi0 - v0 * delta0 / Lf * DT);
+      fg[2 + PSI_START + t] = psi1 - (psi0 - v0 * delta0 / LF * DT);
       fg[2 + V_START + t] = v1 - (v0 + a0 * DT);
       fg[2 + CTE_START + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * DT));
-      fg[2 + EPSI_START + t] = epsi1 - ((psi0 - psides0) - v0 * delta0 / Lf * DT);
+      fg[2 + EPSI_START + t] = epsi1 - ((psi0 - psides0) - v0 * delta0 / LF * DT);
     }
   }
 };
