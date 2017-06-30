@@ -9,6 +9,11 @@
 // for convenience
 using json = nlohmann::json;
 
+static const double TIME_DELAY_SEC = 0.1;
+static const double LF = 2.67;
+static const double POLY_INC = 2.5;
+static const int NUM_POINTS = 25;
+
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
@@ -110,16 +115,13 @@ int main() {
           double steer_value = j[1]["steering_angle"];
           double throttle_value = j[1]["throttle"];
 
-          double delay_t = .1;
-          const double Lf = 2.67;
-
           // Factor in delay
-          double delay_x = v * delay_t;
+          double delay_x = v * TIME_DELAY_SEC;
           double delay_y = 0;
-          double delay_psi = -v * steer_value / Lf * delay_t;
-          double delay_v = v + throttle_value * delay_t;
-          double delay_cte = cte + v * sin(epsi) * delay_t;
-          double delay_epsi = epsi - v * steer_value / Lf * delay_t;
+          double delay_psi = -v * steer_value / LF * TIME_DELAY_SEC;
+          double delay_v = v + throttle_value * TIME_DELAY_SEC;
+          double delay_cte = cte + v * sin(epsi) * TIME_DELAY_SEC;
+          double delay_epsi = epsi - v * steer_value / LF * TIME_DELAY_SEC;
 
           Eigen::VectorXd state(6);
           state << delay_x, delay_y, delay_psi, delay_v, delay_cte, delay_epsi;
@@ -130,11 +132,9 @@ int main() {
           std::vector<double> next_x_vals;
           std::vector<double> next_y_vals;
 
-          double poly_inc = 2.5;
-          int num_points = 25;
-          for (int i = 1; i < num_points; i++) {
-            next_x_vals.push_back(poly_inc * i);
-            next_y_vals.push_back(polyeval(coeffs, poly_inc * i));
+          for (int i = 1; i < NUM_POINTS; i++) {
+            next_x_vals.push_back(POLY_INC * i);
+            next_y_vals.push_back(polyeval(coeffs, POLY_INC * i));
           }
 
           std::vector<double> mpc_x_vals;
@@ -159,10 +159,9 @@ int main() {
           msgJson["mpc_y"] = mpc_y_vals;
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          //std::cout << msg << std::endl;
 
           // Manually added latency. The purpose is to mimic real driving conditions where the car does actuate the commands instantly.
-          std::this_thread::sleep_for(std::chrono::milliseconds((int) (delay_t * 1000)));
+          std::this_thread::sleep_for(std::chrono::milliseconds((int) (TIME_DELAY_SEC * 1000)));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
