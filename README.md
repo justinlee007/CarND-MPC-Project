@@ -1,8 +1,7 @@
 # MPC Project
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-This project implements a MPC (Model Predictive Controller) to use with the Udacity car simulator.  With the MPC running, the car will autonomously drive around the track, adjusting the steering based on a given CTE (Cross Track Error) value.
-
+This project implements a MPC (Model Predictive Controller) to use with the Udacity car simulator.  With the MPC running, the car will autonomously drive around the track at high speeds.  The simulator includes visual indicators showing a yellow line of upcoming waypoints and a green line of path prediction based on the MPC solver.
 ## Dependencies
 
 * cmake >= 3.5
@@ -60,7 +59,24 @@ The goals of this project are the following:
 
 # Implementation of the MPC
 
-Implementing the PID controller was somewhat trivial because it was already done in the [lab.](https://github.com/justinlee007/CarND-PID-Lab/blob/master/src/python/robot.py#L132)  That exercise realized a robot simulator moving around an open area where updates to position were calculated and CTE was used to accurately align the robot to desired position.
+The lectures and quizzes for MPC covered a basic implementation of it.  These quizzes were condensed into a single [lab project](https://github.com/justinlee007/CarND-MPC-Lab) that realized most of the actual project. 
+
+## Setup
+
+* Define the length of the trajectory, N, and duration of each timestep, dt.
+* Define vehicle dynamics and actuator limitations along with other constraints.
+* Define the cost function.
+
+## Loop
+
+* Pass the current state as the initial state to the model predictive controller.
+* Call the optimization solver. Given the initial state, the solver will return the vector of control inputs that minimizes the cost function. The solver we'll use is called Ipopt.
+* Apply the first control input to the vehicle.
+* Back to 1.
+
+### Optimizer
+Ipopt (Interior Point OPTimizer, pronounced eye-pea-Opt) is a software package for large-scale ​nonlinear optimization
+
 
 In the Udacity car simulator, the CTE value is read from the data message sent by the simulator, and the PID controller updates the error values and predicts the steering angle based on the total error.  This predicted steering angle is a correction of the updated error to the desired setpoint based on proportional, integral, and derivative terms (hence PID).
 
@@ -74,13 +90,10 @@ After the PID calculates the steering angle, a throttle value is derived and sen
 
 The speed at which data messages are sent to the program is highly influenced by the resolution and graphics quality selected in the opening screen of the simulator.  Other factors include speed of the machine running the simulator, the OS and if other programs are competing for CPU/GPU usage.  This is important because I found that if the rate of messages coming into the program were too low, the car would not update fast enough.  It would start oscillating and, eventually, fly off the track.
 
-# Throttle
-The other required output value for each data message is a throttle value from -1.0 to 1.0 where -1.0 is 100% reverse and 1.0 is 100% forward.  I decided to use the derived steering value to compute the throttle because:
-1) We want to go fast
-2) Going fast around corners or while oscillating toward the setpoint usually results in going off the track
-3) Going fast when the data message throughput is low also results in going off the track
-  
-I found that using this throttle logic kept the car on the track when oscillating or when the data message throughput was low and allowed for moderately high speeds. 
+# Adjusting for Latency
+
+A contributing factor to latency is actuator dynamics.  For example, the time elapsed between when a new angle is sent to the steering actuator to when that angle is actually achieved. This is modeled in the MPC project as a 100ms latency between when the MPC process completes to when the actuator data is passed back into the system.
+
 
 # Tuning the Hyperparameters
 

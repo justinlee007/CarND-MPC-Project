@@ -20,16 +20,28 @@ static const double REF_CTE = 0;
 static const double REF_EPSI = 0;
 static const double REF_V = 200; // The reference velocity is set to 200 mph.
 
+// Adjustment coefficients for the reference state (non-actuators)
+static const int CTE_COST_COEFF = 2000;
+static const int EPSI_COST_COEFF = 2000;
+static const int V_COST_COEFF = 1;
+
+// Adjustment coefficient for delta (steering actuator)
+static const int DELTA_COST_COEFF = 5;
+
+// Adjustment coefficients for 'a' (throttle actuator)
+static const int A_LOWER_COST_COEFF = 200;
+static const int A_UPPER_COST_COEFF = 5;
+
 // The solver takes all the state variables and actuator variables in a singular vector.
-// Thus, we should to establish when one variable starts and another ends to make our lives easier.
-static const size_t X_START = 0;
-static const size_t Y_START = X_START + TIMESTEPS;
-static const size_t PSI_START = Y_START + TIMESTEPS;
-static const size_t V_START = PSI_START + TIMESTEPS;
-static const size_t CTE_START = V_START + TIMESTEPS;
-static const size_t EPSI_START = CTE_START + TIMESTEPS;
-static const size_t DELTA_START = EPSI_START + TIMESTEPS;
-static const size_t A_START = DELTA_START + TIMESTEPS - 1;
+// Thus, we should to establish start indexes for each variable to make our lives easier.
+static const size_t X_START_IDX = 0;
+static const size_t Y_START_IDX = X_START_IDX + TIMESTEPS;
+static const size_t PSI_START_IDX = Y_START_IDX + TIMESTEPS;
+static const size_t V_START_IDX = PSI_START_IDX + TIMESTEPS;
+static const size_t CTE_START_IDX = V_START_IDX + TIMESTEPS;
+static const size_t EPSI_START_IDX = CTE_START_IDX + TIMESTEPS;
+static const size_t DELTA_START_IDX = EPSI_START_IDX + TIMESTEPS;
+static const size_t A_START_IDX = DELTA_START_IDX + TIMESTEPS - 1;
 
 class FG_eval {
  public:
@@ -42,23 +54,23 @@ class FG_eval {
     // The cost is stored is the first element of `fg`. Any additions to the cost should be added to `fg[0]`.
     fg[0] = 0;
 
-    // The part of the cost based on the reference state.
+    // The cost adjustments for the reference state (non-actuators)
     for (int t = 0; t < TIMESTEPS; t++) {
-      fg[0] += 4000 * CppAD::pow(vars[CTE_START + t] - REF_CTE, 2);
-      fg[0] += 4000 * CppAD::pow(vars[EPSI_START + t] - REF_EPSI, 2);
-      fg[0] += CppAD::pow(vars[V_START + t] - REF_V, 2);
+      fg[0] += CTE_COST_COEFF * CppAD::pow(vars[CTE_START_IDX + t] - REF_CTE, 2);
+      fg[0] += EPSI_COST_COEFF * CppAD::pow(vars[EPSI_START_IDX + t] - REF_EPSI, 2);
+      fg[0] += V_COST_COEFF * CppAD::pow(vars[V_START_IDX + t] - REF_V, 2);
     }
 
-    // Minimize the use of actuators.
+    // The cost adjustments for delta (steering actuator)
     for (int t = 0; t < TIMESTEPS - 1; t++) {
-      fg[0] += 5 * CppAD::pow(vars[DELTA_START + t], 2);
-      fg[0] += 5 * CppAD::pow(vars[A_START + t], 2);
+      fg[0] += DELTA_COST_COEFF * CppAD::pow(vars[DELTA_START_IDX + t], 2);
+      fg[0] += DELTA_COST_COEFF * CppAD::pow(vars[A_START_IDX + t], 2);
     }
 
-    // Minimize the value gap between sequential actuations.
+    // The cost adjustments for 'a' (throttle actuator)
     for (int t = 0; t < TIMESTEPS - 2; t++) {
-      fg[0] += 200 * CppAD::pow(vars[DELTA_START + t + 1] - vars[DELTA_START + t], 2);
-      fg[0] += 10 * CppAD::pow(vars[A_START + t + 1] - vars[A_START + t], 2);
+      fg[0] += A_LOWER_COST_COEFF * CppAD::pow(vars[DELTA_START_IDX + t + 1] - vars[DELTA_START_IDX + t], 2);
+      fg[0] += A_UPPER_COST_COEFF * CppAD::pow(vars[A_START_IDX + t + 1] - vars[A_START_IDX + t], 2);
     }
 
     //
@@ -68,44 +80,44 @@ class FG_eval {
     // Initial constraints
     //
     // We add 1 to each of the starting indices due to cost being located at index 0 of `fg`. This bumps up the position of all the other values.
-    fg[1 + X_START] = vars[X_START];
-    fg[1 + Y_START] = vars[Y_START];
-    fg[1 + PSI_START] = vars[PSI_START];
-    fg[1 + V_START] = vars[V_START];
-    fg[1 + CTE_START] = vars[CTE_START];
-    fg[1 + EPSI_START] = vars[EPSI_START];
+    fg[1 + X_START_IDX] = vars[X_START_IDX];
+    fg[1 + Y_START_IDX] = vars[Y_START_IDX];
+    fg[1 + PSI_START_IDX] = vars[PSI_START_IDX];
+    fg[1 + V_START_IDX] = vars[V_START_IDX];
+    fg[1 + CTE_START_IDX] = vars[CTE_START_IDX];
+    fg[1 + EPSI_START_IDX] = vars[EPSI_START_IDX];
 
     // The rest of the constraints
     for (int t = 0; t < TIMESTEPS - 1; t++) {
       // The state at time t+1 .
-      AD<double> x1 = vars[X_START + t + 1];
-      AD<double> y1 = vars[Y_START + t + 1];
-      AD<double> psi1 = vars[PSI_START + t + 1];
-      AD<double> v1 = vars[V_START + t + 1];
-      AD<double> cte1 = vars[CTE_START + t + 1];
-      AD<double> epsi1 = vars[EPSI_START + t + 1];
+      AD<double> x1 = vars[X_START_IDX + t + 1];
+      AD<double> y1 = vars[Y_START_IDX + t + 1];
+      AD<double> psi1 = vars[PSI_START_IDX + t + 1];
+      AD<double> v1 = vars[V_START_IDX + t + 1];
+      AD<double> cte1 = vars[CTE_START_IDX + t + 1];
+      AD<double> epsi1 = vars[EPSI_START_IDX + t + 1];
 
       // The state at time t.
-      AD<double> x0 = vars[X_START + t];
-      AD<double> y0 = vars[Y_START + t];
-      AD<double> psi0 = vars[PSI_START + t];
-      AD<double> v0 = vars[V_START + t];
-      AD<double> cte0 = vars[CTE_START + t];
-      AD<double> epsi0 = vars[EPSI_START + t];
+      AD<double> x0 = vars[X_START_IDX + t];
+      AD<double> y0 = vars[Y_START_IDX + t];
+      AD<double> psi0 = vars[PSI_START_IDX + t];
+      AD<double> v0 = vars[V_START_IDX + t];
+      AD<double> cte0 = vars[CTE_START_IDX + t];
+      AD<double> epsi0 = vars[EPSI_START_IDX + t];
 
       // Only consider the actuation at time t.
-      AD<double> delta0 = vars[DELTA_START + t];
-      AD<double> a0 = vars[A_START + t];
+      AD<double> delta0 = vars[DELTA_START_IDX + t];
+      AD<double> a0 = vars[A_START_IDX + t];
 
       AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * pow(x0, 2) + coeffs[3] * pow(x0, 3);
       AD<double> psides0 = CppAD::atan(3 * coeffs[3] * pow(x0, 2) + 2 * coeffs[2] * x0 + coeffs[1]);
 
-      fg[2 + X_START + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * DT);
-      fg[2 + Y_START + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * DT);
-      fg[2 + PSI_START + t] = psi1 - (psi0 - v0 * delta0 / LF * DT);
-      fg[2 + V_START + t] = v1 - (v0 + a0 * DT);
-      fg[2 + CTE_START + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * DT));
-      fg[2 + EPSI_START + t] = epsi1 - ((psi0 - psides0) - v0 * delta0 / LF * DT);
+      fg[2 + X_START_IDX + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * DT);
+      fg[2 + Y_START_IDX + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * DT);
+      fg[2 + PSI_START_IDX + t] = psi1 - (psi0 - v0 * delta0 / LF * DT);
+      fg[2 + V_START_IDX + t] = v1 - (v0 + a0 * DT);
+      fg[2 + CTE_START_IDX + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * DT));
+      fg[2 + EPSI_START_IDX + t] = epsi1 - ((psi0 - psides0) - v0 * delta0 / LF * DT);
     }
   }
 };
@@ -136,19 +148,19 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector vars_upperbound(NUM_VARS);
 
   // Set all non-actuators upper and lower limits to the max negative and positive values.
-  for (int i = 0; i < DELTA_START; i++) {
+  for (int i = 0; i < DELTA_START_IDX; i++) {
     vars_lowerbound[i] = -1.0e19;
     vars_upperbound[i] = 1.0e19;
   }
 
   // The upper and lower limits of delta are set to -25 and 25 degrees (values in radians).
-  for (int i = DELTA_START; i < A_START; i++) {
+  for (int i = DELTA_START_IDX; i < A_START_IDX; i++) {
     vars_lowerbound[i] = -0.436332;
     vars_upperbound[i] = 0.436332;
   }
 
   // Acceleration/decceleration upper and lower limits.
-  for (int i = A_START; i < NUM_VARS; i++) {
+  for (int i = A_START_IDX; i < NUM_VARS; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }
@@ -161,19 +173,19 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     constraints_upperbound[i] = 0;
   }
 
-  constraints_lowerbound[X_START] = x;
-  constraints_lowerbound[Y_START] = y;
-  constraints_lowerbound[PSI_START] = psi;
-  constraints_lowerbound[V_START] = v;
-  constraints_lowerbound[CTE_START] = cte;
-  constraints_lowerbound[EPSI_START] = epsi;
+  constraints_lowerbound[X_START_IDX] = x;
+  constraints_lowerbound[Y_START_IDX] = y;
+  constraints_lowerbound[PSI_START_IDX] = psi;
+  constraints_lowerbound[V_START_IDX] = v;
+  constraints_lowerbound[CTE_START_IDX] = cte;
+  constraints_lowerbound[EPSI_START_IDX] = epsi;
 
-  constraints_upperbound[X_START] = x;
-  constraints_upperbound[Y_START] = y;
-  constraints_upperbound[PSI_START] = psi;
-  constraints_upperbound[V_START] = v;
-  constraints_upperbound[CTE_START] = cte;
-  constraints_upperbound[EPSI_START] = epsi;
+  constraints_upperbound[X_START_IDX] = x;
+  constraints_upperbound[Y_START_IDX] = y;
+  constraints_upperbound[PSI_START_IDX] = psi;
+  constraints_upperbound[V_START_IDX] = v;
+  constraints_upperbound[CTE_START_IDX] = cte;
+  constraints_upperbound[EPSI_START_IDX] = epsi;
 
   // object that computes objective and constraints
   FG_eval fg_eval(coeffs);
@@ -205,12 +217,12 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   auto cost = solution.obj_value;
 
   std::vector<double> result;
-  result.push_back(solution.x[DELTA_START]);
-  result.push_back(solution.x[A_START]);
+  result.push_back(solution.x[DELTA_START_IDX]);
+  result.push_back(solution.x[A_START_IDX]);
 
   for (int i = 0; i < TIMESTEPS - 1; i++) {
-    result.push_back(solution.x[X_START + i + 1]);
-    result.push_back(solution.x[Y_START + i + 1]);
+    result.push_back(solution.x[X_START_IDX + i + 1]);
+    result.push_back(solution.x[Y_START_IDX + i + 1]);
   }
 
   return result;
