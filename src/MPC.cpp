@@ -135,7 +135,7 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector vars_lowerbound(NUM_VARS);
   Dvector vars_upperbound(NUM_VARS);
 
-  // Set all non-actuators upper and lowerlimits to the max negative and positive values.
+  // Set all non-actuators upper and lower limits to the max negative and positive values.
   for (int i = 0; i < DELTA_START; i++) {
     vars_lowerbound[i] = -1.0e19;
     vars_upperbound[i] = 1.0e19;
@@ -143,8 +143,8 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // The upper and lower limits of delta are set to -25 and 25 degrees (values in radians).
   for (int i = DELTA_START; i < A_START; i++) {
-    vars_lowerbound[i] = -1.0;
-    vars_upperbound[i] = 1.0;
+    vars_lowerbound[i] = -0.436332;
+    vars_upperbound[i] = 0.436332;
   }
 
   // Acceleration/decceleration upper and lower limits.

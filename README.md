@@ -1,7 +1,7 @@
-# CarND-Controls-MPC
-Self-Driving Car Engineer Nanodegree Program
+# MPC Project
+[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
----
+This project implements a MPC (Model Predictive Controller) to use with the Udacity car simulator.  With the MPC running, the car will autonomously drive around the track, adjusting the steering based on a given CTE (Cross Track Error) value.
 
 ## Dependencies
 
@@ -41,75 +41,110 @@ Self-Driving Car Engineer Nanodegree Program
 * Simulator. You can download these from the [releases tab](https://github.com/udacity/self-driving-car-sim/releases).
 * Not a dependency but read the [DATA.md](./DATA.md) for a description of the data sent back from the simulator.
 
-
 ## Basic Build Instructions
-
 
 1. Clone this repo.
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./mpc`.
 
-## Tips
+# Project Goals and [Rubric](https://review.udacity.com/#!/rubrics/896/view)
 
-1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
-is the vehicle starting offset of a straight line (reference). If the MPC implementation is correct, after some number of timesteps
-(not too many) it should find and track the reference line.
-2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
-3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.
+The goals of this project are the following:
 
-## Editor Settings
+* The MPC procedure must be implemented as was taught in the lessons.
+* A polynomial is fitted to waypoints
+* Waypoints, vehicle state and actuators are preprocessed prior to the MPC procedure
+* The system must handle a 100ms artificial latency
+* The vehicle must successfully drive a lap around the track
 
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
+# Implementation of the MPC
 
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+Implementing the PID controller was somewhat trivial because it was already done in the [lab.](https://github.com/justinlee007/CarND-PID-Lab/blob/master/src/python/robot.py#L132)  That exercise realized a robot simulator moving around an open area where updates to position were calculated and CTE was used to accurately align the robot to desired position.
 
-## Code Style
+In the Udacity car simulator, the CTE value is read from the data message sent by the simulator, and the PID controller updates the error values and predicts the steering angle based on the total error.  This predicted steering angle is a correction of the updated error to the desired setpoint based on proportional, integral, and derivative terms (hence PID).
 
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
+![](pid.png)
+##### PID Formula (image from Wikipedia)
 
-## Project Instructions and Rubric
+After the PID calculates the steering angle, a throttle value is derived and sent back to the simulator.  Once a new message is received, the new CTE value is used to start the process of update and prediction again.   
 
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
+![](pid-process.png)
+##### PID Process (image from Wikipedia)
 
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
+The speed at which data messages are sent to the program is highly influenced by the resolution and graphics quality selected in the opening screen of the simulator.  Other factors include speed of the machine running the simulator, the OS and if other programs are competing for CPU/GPU usage.  This is important because I found that if the rate of messages coming into the program were too low, the car would not update fast enough.  It would start oscillating and, eventually, fly off the track.
 
-## Hints!
+# Throttle
+The other required output value for each data message is a throttle value from -1.0 to 1.0 where -1.0 is 100% reverse and 1.0 is 100% forward.  I decided to use the derived steering value to compute the throttle because:
+1) We want to go fast
+2) Going fast around corners or while oscillating toward the setpoint usually results in going off the track
+3) Going fast when the data message throughput is low also results in going off the track
+  
+I found that using this throttle logic kept the car on the track when oscillating or when the data message throughput was low and allowed for moderately high speeds. 
 
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
+# Tuning the Hyperparameters
 
-## Call for IDE Profiles Pull Requests
+The bulk of the work I did for this project was in tuning the hyperparameters and developing the twiddle algorithm to automatically update them as the car drove around the track.
 
-Help your fellow students!
+## Manual Tuning
 
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
+I started out using some values supplied in the lecture:
+```
+P (Proportional) = 0.225
+I (Integral) = 0.0004
+D (Differential) = 4
+```
 
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
+I noticed that changing the integral param *even the slightest* would result in the car wildly oscillating back and forth.  The same would be for the proportional param -- small changes resulting in large oscillations and the car would often go off the track.  The differential value could be changed quite a bit before seeing much change.
 
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
+## Twiddle Algorithm
 
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
+After some manual tinkering, I decided to apply the twiddle algorithm to update the parameters automatically.  I structured my implementation of the algorithm to methodically vary each of the parameters and measure the resulting difference in error to determine if increasing or decreasing the value was improving the overall CTE of the car's path.
 
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
+![](twiddle-pseudo.png)
+##### Twiddle Psuedocode
 
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
+The fundamental concept of twiddle is to refine input parameters based on an empirical feedback mechanism.  The algorithm boils down to:
+* Record the error before running
+* Change the parameter
+* Let the system run
+* Record the error again
+* Compare the two and chose the one with less error
+
+![](twiddle.png)
+##### Example illustration showing benefits of a PID controller implementing the twiddle algorithm (image from Wikipedia)
+
+Some details of the algorithm are as follows:
+### Sample Size
+The twiddle algorithm requires the system to have a constant run-rate to accurately guage the error between the parameter delta that is being tuned.  My first attempt at this included thousands of samples to try and equate total error to an entire lap around the track, but that ended up being slow and inaccurate.  Without location data, any attempt at gleaning track location is guesswork.  So I decided to use a **sample size of 100**. That means 100 measurements are made between each twiddle of a hyperparameter. 
+
+### Parameter Deltas
+
+When twiddle runs in the Udacity car simulator, it updates the PID hyperparameters directly, and has an immediate affect on the car's performance.  Because changing the values too much can result in the car immediately flying off the track, I decided to use the seed PID values to drive parameter deltas.  After much tinkering, I decided that the param deltas would initialize to **10% of the seed value**.  So even though the twiddle algorithm tunes hyperparameters to a smaller range, it allows for dynamic updates while the simulator is running. 
+
+```
+Delta P (Proportional) ΔP = 0.225 / 10
+Delta I (Integral) = ΔI = 0.0004 / 10
+Delta D (Differential) ΔD = 4 / 10
+```
+
+### Tolerance
+Twiddle incorporates a tolerance value as the hyperparameters are tuned, so the algorithm will know when it's finished.  After some tinkering, I ended up keeping the same **0.2** value as used in the lab.
+
+# Results
+After much tinkering, my implementation runs well enough to get to 67 MPH and stays on the track.
+
+[Link to project video](https://youtu.be/qMOD0XqE0XQ)
+
+# Lessons Learned
+
+The twiddle logic requires the system to run and accumulate CTE to proceed to the next statement, so I had to record state information to reflect that.  A better approach would be to use a **callback mechanism** to initiate an accumulation/running timespan.
+
+Tracking all the data points throughout the process of developing the MPC required a dedicated **Tracker class**.  This class collated all the pertinent data and reported it in periodic output like the following:  
+
+```
+best_cte_=0.00008, worst_cte_=2.45552, ave_cte=0.50638
+best_speed_=101.41, ave_speed_=77.95, ave_throttle_=0.795, ave_tps_=7.6
+```
+
+Finally I think that the twiddle runs should be based on **laps**.  That way, the cumulative error for the entire lap could be used to twiddle the hyperparameters.  I think that might result in the highest accuracy for the twiddle tuning.  However, location data was not included nor was in the scope for this project.
