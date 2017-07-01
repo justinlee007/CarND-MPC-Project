@@ -33,7 +33,7 @@ static const int A_LOWER_COST_COEFF = 200;
 static const int A_UPPER_COST_COEFF = 5;
 
 // The solver takes all the state variables and actuator variables in a singular vector.
-// Thus, we should to establish start indexes for each variable to make our lives easier.
+// These constants establish start indexes for each variable to make life easier.
 static const size_t X_START_IDX = 0;
 static const size_t Y_START_IDX = X_START_IDX + TIMESTEPS;
 static const size_t PSI_START_IDX = Y_START_IDX + TIMESTEPS;

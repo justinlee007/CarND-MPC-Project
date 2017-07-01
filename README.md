@@ -59,13 +59,18 @@ The goals of this project are the following:
 
 # Implementation of the MPC
 
-The lectures and quizzes for MPC covered a basic implementation of it.  These quizzes were condensed into a single [lab project](https://github.com/justinlee007/CarND-MPC-Lab) that realized most of the actual project. 
+The lectures and quizzes for MPC covered a basic implementation of it.  These quizzes were condensed into a single [lab project](https://github.com/justinlee007/CarND-MPC-Lab) that realized most of the actual project.
+ 
+MPC is essentially two components: **setup** and **loop**
 
 ## Setup
 
 * Define the length of the trajectory, N, and duration of each timestep, dt.
 * Define vehicle dynamics and actuator limitations along with other constraints.
 * Define the cost function.
+
+### Constraints
+
 
 ## Loop
 
@@ -75,10 +80,12 @@ The lectures and quizzes for MPC covered a basic implementation of it.  These qu
 * Back to 1.
 
 ### Optimizer
-Ipopt (Interior Point OPTimizer, pronounced eye-pea-Opt) is a software package for large-scale ​nonlinear optimization
+The MPC uses an optimizer for the control inputs [δ<sub>1</sub>, a<sub>1</sub>, ..., δ<sub>N−1</sub>, a​<sub>N−1</sub>].  It finds locally optimal values while keeping the constraints defined by the non-actuator and actuator parameters.  
 
+The optimizer used in this project is [Ipopt](https://projects.coin-or.org/Ipopt) (**I**nterior **P**oint **OPT**imizer, pronounced eye-pea-Opt), which works great for large-scale ​nonlinear optimization.
 
-In the Udacity car simulator, the CTE value is read from the data message sent by the simulator, and the PID controller updates the error values and predicts the steering angle based on the total error.  This predicted steering angle is a correction of the updated error to the desired setpoint based on proportional, integral, and derivative terms (hence PID).
+### Automatic Differentiation
+Ipopt requires the jacobians and hessians directly -- it does not automatically compute them.  Therefore, this project uses [CppAD](https://www.coin-or.org/CppAD/) to compute the derivative values.  The AD (**A**utomatic **D**ifferentiation) returns the cost function and the approximated solution for steering angle and throttle (δ, a). 
 
 ![](pid.png)
 ##### PID Formula (image from Wikipedia)
