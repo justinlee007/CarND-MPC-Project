@@ -63,13 +63,22 @@ The goals of this project are the following:
 
 The lectures and quizzes for MPC covered a basic implementation of it.  These quizzes were condensed into a single [lab project](https://github.com/justinlee007/CarND-MPC-Lab) that realized most of the actual project.
  
-MPC is essentially two components: **setup** and **loop**
+MPC is a process that uses a realistic model of the vehicle dynamics to create a predicted path that follows a reference trajectory.  The predicted path is optimized based on a cost function that takes into account CTE and other constraints.
+
+![](mpc-scheme-basic.png)
+##### Basic MPC scheme (image from Wikipedia)
+
+This MPC implementation consists of two components: **setup** and **loop**
 
 ## Setup
 
 * Define the length of the trajectory, N, and duration of each timestep, dt.
 * Define vehicle dynamics and actuator limitations along with other constraints.
 * Define the cost function.
+
+### Length of trajectory and timestep duration
+
+This model uses **N=10** trajectory iterations at **100ms** for each timestep duration, effectively forecasting 1 second of path prediction.
 
 ### Constraints
 
@@ -82,6 +91,7 @@ MPC is essentially two components: **setup** and **loop**
 
 ### Cost function
 
+The cost function has coefficients for position error and velocity as well as the steering and throttle actuators. 
 
 ## Loop
 
@@ -97,78 +107,17 @@ The optimizer used in this project is [Ipopt](https://projects.coin-or.org/Ipopt
 ### Automatic Differentiation
 Ipopt requires the jacobians and hessians directly -- it does not automatically compute them.  Therefore, this project uses [CppAD](https://www.coin-or.org/CppAD/) to compute the derivative values.  The AD (**A**utomatic **D**ifferentiation) returns the cost function and the approximated solution for steering angle and throttle (δ, a). 
 
-![](pid.png)
-##### PID Formula (image from Wikipedia)
-
-After the PID calculates the steering angle, a throttle value is derived and sent back to the simulator.  Once a new message is received, the new CTE value is used to start the process of update and prediction again.   
-
-![](pid-process.png)
-##### PID Process (image from Wikipedia)
-
-The speed at which data messages are sent to the program is highly influenced by the resolution and graphics quality selected in the opening screen of the simulator.  Other factors include speed of the machine running the simulator, the OS and if other programs are competing for CPU/GPU usage.  This is important because I found that if the rate of messages coming into the program were too low, the car would not update fast enough.  It would start oscillating and, eventually, fly off the track.
-
 # Adjusting for Latency
 
 A contributing factor to latency is actuator dynamics.  For example, the time elapsed between when a new angle is sent to the steering actuator to when that angle is actually achieved. This is modeled in the MPC project as a 100ms latency between when the MPC process completes to when the actuator data is passed back into the system.
 
+The speed at which data messages are sent to the program is highly influenced by the resolution and graphics quality selected in the opening screen of the simulator.  Other factors include speed of the machine running the simulator, the OS and if other programs are competing for CPU/GPU usage.  While these factors greatly influenced the perfomance of the PID controller, they became irrelevant for MPC once the artificial 100ms latency was added.
+
 
 # Tuning the Hyperparameters
 
-The bulk of the work I did for this project was in tuning the hyperparameters and developing the twiddle algorithm to automatically update them as the car drove around the track.
 
-## Manual Tuning
-
-I started out using some values supplied in the lecture:
-```
-P (Proportional) = 0.225
-I (Integral) = 0.0004
-D (Differential) = 4
-```
-
-I noticed that changing the integral param *even the slightest* would result in the car wildly oscillating back and forth.  The same would be for the proportional param -- small changes resulting in large oscillations and the car would often go off the track.  The differential value could be changed quite a bit before seeing much change.
-
-## Twiddle Algorithm
-
-After some manual tinkering, I decided to apply the twiddle algorithm to update the parameters automatically.  I structured my implementation of the algorithm to methodically vary each of the parameters and measure the resulting difference in error to determine if increasing or decreasing the value was improving the overall CTE of the car's path.
-
-![](twiddle-pseudo.png)
-##### Twiddle Psuedocode
-
-The fundamental concept of twiddle is to refine input parameters based on an empirical feedback mechanism.  The algorithm boils down to:
-* Record the error before running
-* Change the parameter
-* Let the system run
-* Record the error again
-* Compare the two and chose the one with less error
-
-![](twiddle.png)
-##### Example illustration showing benefits of a PID controller implementing the twiddle algorithm (image from Wikipedia)
-
-Some details of the algorithm are as follows:
-### Sample Size
-The twiddle algorithm requires the system to have a constant run-rate to accurately guage the error between the parameter delta that is being tuned.  My first attempt at this included thousands of samples to try and equate total error to an entire lap around the track, but that ended up being slow and inaccurate.  Without location data, any attempt at gleaning track location is guesswork.  So I decided to use a **sample size of 100**. That means 100 measurements are made between each twiddle of a hyperparameter. 
-
-### Parameter Deltas
-
-When twiddle runs in the Udacity car simulator, it updates the PID hyperparameters directly, and has an immediate affect on the car's performance.  Because changing the values too much can result in the car immediately flying off the track, I decided to use the seed PID values to drive parameter deltas.  After much tinkering, I decided that the param deltas would initialize to **10% of the seed value**.  So even though the twiddle algorithm tunes hyperparameters to a smaller range, it allows for dynamic updates while the simulator is running. 
-
-```
-Delta P (Proportional) ΔP = 0.225 / 10
-Delta I (Integral) = ΔI = 0.0004 / 10
-Delta D (Differential) ΔD = 4 / 10
-```
-
-### Tolerance
-Twiddle incorporates a tolerance value as the hyperparameters are tuned, so the algorithm will know when it's finished.  After some tinkering, I ended up keeping the same **0.2** value as used in the lab.
-
-# Results
-After much tinkering, my implementation runs well enough to get to 101 MPH and stays on the track.
-
-[Link to project video](https://youtu.be/RKa5MHXwHRo)
-
-# Lessons Learned
-
-The twiddle logic requires the system to run and accumulate CTE to proceed to the next statement, so I had to record state information to reflect that.  A better approach would be to use a **callback mechanism** to initiate an accumulation/running timespan.
+# Tracking
 
 Tracking all the data points throughout the process of developing the MPC required a dedicated **Tracker class**.  This class collated all the pertinent data and reported it in periodic output like the following:  
 
@@ -178,9 +127,20 @@ best_cost_=0, worst_cost_=563070, ave_cost_=204308
 best_speed_=101.98, ave_speed_=75.53, ave_throttle_=0.845, ave_tps_=7.6
 ```
 
-Lap tracking:
+In addition to the periodic tracking from above, the waypoints provide a mechanism to track actual **laps**.  This is relevent data to capture because racing is based on lap times, not highest speed.  Also, if a twiddle algorithm is used for tuning hyperparameters, the error rate per-lap could be used instead of some arbitrary sample size. 
+
+Lap tracking example:
 ```
 num_laps_=3, best_lap_=31.92s, ave_lap_=33.53s
 ```
 
-Finally I think that the twiddle runs should be based on **laps**.  That way, the cumulative error for the entire lap could be used to twiddle the hyperparameters.  I think that might result in the highest accuracy for the twiddle tuning.  However, location data was not included nor was in the scope for this project.
+
+# Results
+After much tinkering, my implementation runs well enough to get to 101 MPH and stays on the track.
+
+[Link to project video](https://youtu.be/RKa5MHXwHRo)
+
+# Lessons Learned
+
+It would be interesting to try a **twiddle algorithm** to tune specific lap-based data-points (like CTE or lap time).  It could be used to tune the coefficient values of the cost function.
+
