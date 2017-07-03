@@ -44,7 +44,7 @@ void Tracker::onMessageProcessed(double cte, double speed, double throttle, doub
         best_lap_ = (num_laps_ == 1) ? current_lap : fmin(current_lap, best_lap_);
         total_lap_ += current_lap;
         ave_lap_ = total_lap_ / num_laps_;
-        printf("best_lap_=%.2fs, ave_lap_=%.2fs, num_laps_=%i\n", (best_lap_ / 1000), (ave_lap_ / 1000), num_laps_);
+        printf("\nnum_laps_=%i, best_lap_=%.2fs, ave_lap_=%.2fs\n\n", num_laps_, (best_lap_ / 1000), (ave_lap_ / 1000));
       }
       lap_timer_ = steady_clock::now();
       is_lapping_ = false;
