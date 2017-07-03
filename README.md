@@ -2,6 +2,8 @@
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
 This project implements a MPC (Model Predictive Controller) to use with the Udacity car simulator.  With the MPC running, the car will autonomously drive around the track at high speeds.  The simulator includes visual indicators showing a yellow line of upcoming waypoints and a green line of path prediction based on the MPC solver.
+
+![](mpc-run.gif)
 ## Dependencies
 
 * cmake >= 3.5
@@ -153,9 +155,9 @@ Delta D (Differential) ΔD = 4 / 10
 Twiddle incorporates a tolerance value as the hyperparameters are tuned, so the algorithm will know when it's finished.  After some tinkering, I ended up keeping the same **0.2** value as used in the lab.
 
 # Results
-After much tinkering, my implementation runs well enough to get to 67 MPH and stays on the track.
+After much tinkering, my implementation runs well enough to get to 101 MPH and stays on the track.
 
-[Link to project video](https://youtu.be/qMOD0XqE0XQ)
+[Link to project video](https://youtu.be/RKa5MHXwHRo)
 
 # Lessons Learned
 
@@ -164,8 +166,14 @@ The twiddle logic requires the system to run and accumulate CTE to proceed to th
 Tracking all the data points throughout the process of developing the MPC required a dedicated **Tracker class**.  This class collated all the pertinent data and reported it in periodic output like the following:  
 
 ```
-best_cte_=0.00008, worst_cte_=2.45552, ave_cte=0.50638
-best_speed_=101.41, ave_speed_=77.95, ave_throttle_=0.795, ave_tps_=7.6
+best_cte_=0.00069, worst_cte_=2.90097, ave_cte_=0.52483
+best_cost_=0, worst_cost_=563070, ave_cost_=204308
+best_speed_=101.98, ave_speed_=75.53, ave_throttle_=0.845, ave_tps_=7.6
+```
+
+Lap tracking:
+```
+num_laps_=3, best_lap_=31.92s, ave_lap_=33.53s
 ```
 
 Finally I think that the twiddle runs should be based on **laps**.  That way, the cumulative error for the entire lap could be used to twiddle the hyperparameters.  I think that might result in the highest accuracy for the twiddle tuning.  However, location data was not included nor was in the scope for this project.
