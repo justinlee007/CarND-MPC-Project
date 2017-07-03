@@ -71,13 +71,14 @@ MPC is essentially two components: **setup** and **loop**
 
 ### Constraints
 
+### Cost function
+
 
 ## Loop
 
 * Pass the current state as the initial state to the model predictive controller.
-* Call the optimization solver. Given the initial state, the solver will return the vector of control inputs that minimizes the cost function. The solver we'll use is called Ipopt.
-* Apply the first control input to the vehicle.
-* Back to 1.
+* Call the optimization solver. Given the initial state, the solver will return the vector of control inputs that minimizes the cost function.
+* Apply the control input to the vehicle.
 
 ### Optimizer
 The MPC uses an optimizer for the control inputs [δ<sub>1</sub>, a<sub>1</sub>, ..., δ<sub>N−1</sub>, a​<sub>N−1</sub>].  It finds locally optimal values while keeping the constraints defined by the non-actuator and actuator parameters.  

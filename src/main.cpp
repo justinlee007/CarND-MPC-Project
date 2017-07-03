@@ -88,6 +88,8 @@ int main() {
           // j[1] is the data JSON object
           std::vector<double> ptsx = j[1]["ptsx"];
           std::vector<double> ptsy = j[1]["ptsy"];
+          double x = ptsx[0];
+          double y = ptsy[0];
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
@@ -147,7 +149,7 @@ int main() {
           std::vector<double> mpc_x_vals;
           std::vector<double> mpc_y_vals;
 
-          for (int i = 2; i < vars.size(); i++) {
+          for (int i = 4; i < vars.size(); i++) {
             if (i % 2 == 0) {
               mpc_x_vals.push_back(vars[i]);
             } else {
@@ -155,9 +157,16 @@ int main() {
             }
           }
 
-          steer_value = vars[0];
-          throttle_value = vars[1];
-          tracker.onMessageProcessed(cte, v, throttle_value);
+          bool ok = (bool) vars[0];
+          double cost = vars[1];
+          if (ok) {
+            steer_value = vars[2];
+            throttle_value = vars[3];
+          } else {
+            steer_value = 0;
+            throttle_value = -1; // full stop
+          }
+          tracker.onMessageProcessed(cte, v, throttle_value, cost, x, y);
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;

@@ -21,8 +21,8 @@ static const double REF_EPSI = 0;
 static const double REF_V = 200; // The reference velocity is set to 200 mph.
 
 // Adjustment coefficients for the reference state (non-actuators)
-static const int CTE_COST_COEFF = 2000;
-static const int EPSI_COST_COEFF = 2000;
+static const int CTE_COST_COEFF = 3500;
+static const int EPSI_COST_COEFF = 3500;
 static const int V_COST_COEFF = 1;
 
 // Adjustment coefficient for delta (steering actuator)
@@ -217,6 +217,9 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   auto cost = solution.obj_value;
 
   std::vector<double> result;
+  result.push_back((double) ok);
+  result.push_back(cost);
+
   result.push_back(solution.x[DELTA_START_IDX]);
   result.push_back(solution.x[A_START_IDX]);
 
