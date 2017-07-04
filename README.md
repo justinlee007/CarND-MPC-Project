@@ -84,7 +84,7 @@ This model uses **N=10** trajectory iterations at **100ms** for each timestep du
 
 These values are based on the vehicle model.  They predict the vehicle location, orientation, speed, CTE and tangential error.  It uses the current measured values to extract predicted ones based on the duration of timestep, *dt*. 
 
-The formulae for these constraints are:
+The formulas for these constraints are:
 * *x<sub>t+1</sub> = x<sub>t</sub> + v<sub>t</sub> ∗ cos( ψ<sub>t</sub> ) ∗ dt*
 * *y<sub>t+1</sub> = y<sub>t</sub> + v<sub>t</sub> ∗ sin( ψ<sub>t</sub> ) ∗ dt*
 * *ψ<sub>t+1</sub> = ψ<sub>t</sub> + v<sub>t</sub> / L<sub>f</sub> ∗ δ<sub>t</sub> ∗ dt*
@@ -105,6 +105,8 @@ The following steps are looped as long as the connection to the simulator is act
 * Call the optimization solver. Given the initial state, the solver will return the vector of control inputs that minimizes the cost function.
 * Apply the control input to the vehicle.
 
+The simulator sends position, orientation, velocity and map marker data per loop.  This data is used (with the above constraint formulas) to compute N predicted states, each having in incrementing *dt*.  This vector of data, along with cost, is passed into the optimizer.
+   
 ### Optimizer
 The MPC uses an optimizer for the control inputs [δ<sub>1</sub>, a<sub>1</sub>, ..., δ<sub>N−1</sub>, a​<sub>N−1</sub>].  It finds locally optimal values while keeping the constraints defined by the non-actuator and actuator parameters.  
 
