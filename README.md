@@ -5,7 +5,6 @@ This project implements a MPC (Model Predictive Controller) to use with the Udac
 
 ![](mpc-run.gif)
 ## Dependencies
-
 * cmake >= 3.5
  * All OSes: [click here for installation instructions](https://cmake.org/install/)
 * make >= 4.1
@@ -43,14 +42,12 @@ This project implements a MPC (Model Predictive Controller) to use with the Udac
 * Not a dependency but read the [DATA.md](./DATA.md) for a description of the data sent back from the simulator.
 
 ## Basic Build Instructions
-
 1. Clone this repo.
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./mpc`.
 
 # Project Goals and [Rubric](https://review.udacity.com/#!/rubrics/896/view)
-
 The goals of this project are the following:
 
 * The MPC procedure must be implemented as was taught in the lessons.
@@ -60,14 +57,12 @@ The goals of this project are the following:
 * The vehicle must successfully drive a lap around the track
 
 # Implementation of the MPC
-
 The lectures and quizzes for MPC covered a basic implementation of it.  These quizzes were condensed into a single [lab project](https://github.com/justinlee007/CarND-MPC-Lab) that realized most of the actual project.
  
-MPC is a process that uses a realistic model of the vehicle dynamics to create a predicted path that follows a reference trajectory.  The predicted path is optimized based on a cost function that takes into account CTE and other constraints.
+MPC is a process that uses a realistic model of the vehicle dynamics to create a predicted path that follows a reference trajectory.  The predicted path is optimized based on a cost function that takes into account cross-track error (CTE) and other constraints.
 
 ![](mpc-scheme-basic.png)
 ##### Basic MPC scheme (image from Wikipedia)
-
 This MPC implementation consists of two components: **setup** and **loop**
 
 ## Setup
@@ -77,11 +72,9 @@ The steps for setting up the MPC model are:
 * Define the cost function.
 
 ### Length of trajectory and timestep duration
-
-This model uses **N=10** trajectory iterations at **100ms** for each timestep duration, effectively forecasting 1 second of path prediction.
+This model uses **N=10** trajectory iterations at **100ms** for each timestep duration, effectively forecasting 1 second of path prediction.  The forecasted path is called the **prediction horizon** and the predicted points are matched with a polynomial function with the `polyfit` method. 
 
 ### Constraints
-
 These values are based on the vehicle model.  They predict the vehicle location, orientation, speed, CTE and tangential error.  It uses the current measured values to extract predicted ones based on the duration of timestep, *dt*. 
 
 The formulas for these constraints are:
@@ -94,10 +87,54 @@ The formulas for these constraints are:
 ##### Constraints for position (x, y), orientation (ψ), velocity (v), cross-track error (cte) and tangential error (eψ)
 
 ### Cost function
-
-The cost function has coefficients for reference state as well as the steering and throttle actuators.  These coefficients are summed together to form the aggregated cost. 
+The cost function has coefficients for reference state as well as the steering and throttle actuators.  These coefficients are summed together to form the aggregate cost. 
  
 Besides minimizing cross track, heading, and velocity errors, further enhancements constrain erratic control inputs.  These enhancements are to smooth turns and velocity changes.
+
+#### Tuning the cost function
+```
+// Both the reference cross track and orientation errors are 0.
+static const double REF_CTE = 0;
+static const double REF_EPSI = 0;
+static const double REF_V = 200; // The reference velocity is set to 200 mph.
+
+// Adjustment coefficients for the reference state (non-actuators)
+static const int CTE_COST_COEFF = 3500;
+static const int EPSI_COST_COEFF = 3500;
+static const int V_COST_COEFF = 1;
+
+// Adjustment coefficient for delta (steering actuator)
+static const int DELTA_COST_COEFF = 5;
+
+// Adjustment coefficients for 'a' (throttle actuator)
+static const int A_LOWER_COST_COEFF = 200;
+static const int A_UPPER_COST_COEFF = 5;
+
+...
+
+    // The cost adjustments for the reference state (non-actuators)
+    for (int t = 0; t < TIMESTEPS; t++) {
+      fg[0] += CTE_COST_COEFF * CppAD::pow(vars[CTE_START_IDX + t] - REF_CTE, 2);
+      fg[0] += EPSI_COST_COEFF * CppAD::pow(vars[EPSI_START_IDX + t] - REF_EPSI, 2);
+      fg[0] += V_COST_COEFF * CppAD::pow(vars[V_START_IDX + t] - REF_V, 2);
+    }
+```
+The CTE and EPSI constraints were set very high (3500) in order to offset the desire to go fast (reference velocity at 200mph)
+
+```
+    // Minimize change-rate
+    for (int t = 0; t < TIMESTEPS - 1; t++) {
+      fg[0] += DELTA_COST_COEFF * CppAD::pow(vars[DELTA_START_IDX + t], 2);
+      fg[0] += DELTA_COST_COEFF * CppAD::pow(vars[A_START_IDX + t], 2);
+    }
+    
+    // Minimize the value gap between sequential actuations
+    for (int t = 0; t < TIMESTEPS - 2; t++) {
+      fg[0] += A_LOWER_COST_COEFF * CppAD::pow(vars[DELTA_START_IDX + t + 1] - vars[DELTA_START_IDX + t], 2);
+      fg[0] += A_UPPER_COST_COEFF * CppAD::pow(vars[A_START_IDX + t + 1] - vars[A_START_IDX + t], 2);
+    }
+```
+The rest of the cost function coefficients were not nearly as high as the CTE and EPSI ones.  This underscores the desire to minimize these in practice.  This ensures that the car stays on the course at all costs, sacrificing speed, acceleration, and jerkiness to stay on the road.
 
 ## Loop
 The following steps are looped as long as the connection to the simulator is active:
@@ -106,6 +143,8 @@ The following steps are looped as long as the connection to the simulator is act
 * Apply the control input to the vehicle.
 
 The simulator sends position, orientation, velocity and map marker data per loop.  This data is used (with the above constraint formulas) to compute N predicted states, each having in incrementing *dt*.  This vector of data, along with cost, is passed into the optimizer.
+
+Once the optimized route and actuator data is resolved, it is returned to the server to plot the yellow waypoint line, green predicted line, and actuate the car.
    
 ### Optimizer
 The MPC uses an optimizer for the control inputs [δ<sub>1</sub>, a<sub>1</sub>, ..., δ<sub>N−1</sub>, a​<sub>N−1</sub>].  It finds locally optimal values while keeping the constraints defined by the non-actuator and actuator parameters.  
@@ -116,19 +155,14 @@ The optimizer used in this project is [Ipopt](https://projects.coin-or.org/Ipopt
 Ipopt requires the jacobians and hessians directly -- it does not automatically compute them.  Therefore, this project uses [CppAD](https://www.coin-or.org/CppAD/) to compute the derivative values.  The AD (**A**utomatic **D**ifferentiation) returns the cost function and the approximated solution for steering angle and throttle (δ, a). 
 
 # Adjusting for Latency
-
 A contributing factor to latency is actuator dynamics.  For example, the time elapsed between when a new angle is sent to the steering actuator to when that angle is actually achieved. This is modeled in the MPC project as a 100ms latency between when the MPC process completes to when the actuator data is passed back into the system.
 
 The speed at which data messages are sent to the program is highly influenced by the resolution and graphics quality selected in the opening screen of the simulator.  Other factors include speed of the machine running the simulator, the OS and if other programs are competing for CPU/GPU usage.  While these factors greatly influenced the perfomance of the PID controller, they became irrelevant for MPC once the artificial 100ms latency was added.
 
-# Tuning the Hyperparameters
-For this project, the hyperparameters chosen to focus on resided mostly with the coefficients on the constraints of the cost function.  Those values are broken into three groups:
-* Non-actuators
-* Steering
-* Throttle
+### Initial state adjustment
+To adjust for the 100ms delay, the initial state is converted to a predicted state S<sub>t+1</sub> by using the same constraint formulas for position, orientation, velocity, cte and tangential error.  In effect, the current position is recalculated for *dt*.  
 
 # Tracking
-
 Tracking all the data points throughout the process of developing the MPC required a dedicated **Tracker class**.  This class collated all the pertinent data and reported it in periodic output like the following:  
 
 ```
@@ -151,6 +185,6 @@ After much tinkering, my implementation runs well enough to get to 101 MPH and s
 [Link to project video](https://youtu.be/RKa5MHXwHRo)
 
 # Lessons Learned
-
 It would be interesting to try a **twiddle algorithm** to tune specific lap-based data-points (like CTE or lap time).  It could be used to tune the coefficient values of the cost function.
 
+Another idea would be to feed the outputs of the MPC into a **PID controller** to stabilize the motion.  In practice, the car drives much more smooth than with a PID controller alone, but perhaps the two could work in tandem.
