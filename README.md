@@ -71,7 +71,7 @@ MPC is a process that uses a realistic model of the vehicle dynamics to create a
 This MPC implementation consists of two components: **setup** and **loop**
 
 ## Setup
-
+The steps for setting up the MPC model are:
 * Define the length of the trajectory, N, and duration of each timestep, dt.
 * Define vehicle dynamics and actuator limitations along with other constraints.
 * Define the cost function.
@@ -82,19 +82,25 @@ This model uses **N=10** trajectory iterations at **100ms** for each timestep du
 
 ### Constraints
 
+These values are based on the vehicle model.  They predict the vehicle location, orientation, speed, CTE and tangential error.  It uses the current measured values to extract predicted ones based on the duration of timestep, *dt*. 
+
+The formulae for these constraints are:
 * *x<sub>t+1</sub> = x<sub>t</sub> + v<sub>t</sub> ∗ cos( ψ<sub>t</sub> ) ∗ dt*
 * *y<sub>t+1</sub> = y<sub>t</sub> + v<sub>t</sub> ∗ sin( ψ<sub>t</sub> ) ∗ dt*
 * *ψ<sub>t+1</sub> = ψ<sub>t</sub> + v<sub>t</sub> / L<sub>f</sub> ∗ δ<sub>t</sub> ∗ dt*
 * *v<sub>t+1</sub> = v<sub>t</sub> + a<sub>t</sub> ∗ dt*
 * *cte<sub>t+1</sub> = f(x<sub>t</sub>) − y<sub>t</sub> + ( v<sub>t</sub> ∗ sin( eψ<sub>t</sub> ∗ d<sub>t</sub> )*
 * *eψ<sub>t+1</sub> = ψ<sub>t</sub> − ψdes<sub>t</sub> + ( v<sub>t</sub> / L<sub>f</sub> ∗ δ<sub>t</sub> ∗ d<sub>t</sub> )*
+##### Constraints for position (x, y), orientation (ψ), velocity (v), cross-track error (cte) and tangential error (eψ)
 
 ### Cost function
 
-The cost function has coefficients for position error and velocity as well as the steering and throttle actuators. 
+The cost function has coefficients for reference state as well as the steering and throttle actuators.  These coefficients are summed together to form the aggregated cost. 
+ 
+Besides minimizing cross track, heading, and velocity errors, further enhancements constrain erratic control inputs.  These enhancements are to smooth turns and velocity changes.
 
 ## Loop
-
+The following steps are looped as long as the connection to the simulator is active:
 * Pass the current state as the initial state to the model predictive controller.
 * Call the optimization solver. Given the initial state, the solver will return the vector of control inputs that minimizes the cost function.
 * Apply the control input to the vehicle.
@@ -113,9 +119,11 @@ A contributing factor to latency is actuator dynamics.  For example, the time el
 
 The speed at which data messages are sent to the program is highly influenced by the resolution and graphics quality selected in the opening screen of the simulator.  Other factors include speed of the machine running the simulator, the OS and if other programs are competing for CPU/GPU usage.  While these factors greatly influenced the perfomance of the PID controller, they became irrelevant for MPC once the artificial 100ms latency was added.
 
-
 # Tuning the Hyperparameters
-
+For this project, the hyperparameters chosen to focus on resided mostly with the coefficients on the constraints of the cost function.  Those values are broken into three groups:
+* Non-actuators
+* Steering
+* Throttle
 
 # Tracking
 

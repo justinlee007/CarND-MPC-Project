@@ -61,13 +61,13 @@ class FG_eval {
       fg[0] += V_COST_COEFF * CppAD::pow(vars[V_START_IDX + t] - REF_V, 2);
     }
 
-    // The cost adjustments for delta (steering actuator)
+    // Minimize change-rate
     for (int t = 0; t < TIMESTEPS - 1; t++) {
       fg[0] += DELTA_COST_COEFF * CppAD::pow(vars[DELTA_START_IDX + t], 2);
       fg[0] += DELTA_COST_COEFF * CppAD::pow(vars[A_START_IDX + t], 2);
     }
 
-    // The cost adjustments for 'a' (throttle actuator)
+    // Minimize the value gap between sequential actuations
     for (int t = 0; t < TIMESTEPS - 2; t++) {
       fg[0] += A_LOWER_COST_COEFF * CppAD::pow(vars[DELTA_START_IDX + t + 1] - vars[DELTA_START_IDX + t], 2);
       fg[0] += A_UPPER_COST_COEFF * CppAD::pow(vars[A_START_IDX + t + 1] - vars[A_START_IDX + t], 2);
